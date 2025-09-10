@@ -23,7 +23,7 @@
 
 ## Project and community
 
-Ubuntu Core is a member of the Ubuntu family. It's an open source project that welcomes community projects, contributions, suggestions, fixes and constructive feedback. 
+Ubuntu Core is a member of the Ubuntu family. It's an open source project that welcomes community projects, contributions, suggestions, fixes and constructive feedback.
 
 * [Community engagement commitment](explanation/community-engagement)
 * [Our Code of Conduct](https://ubuntu.com/community/ethos/code-of-conduct)
@@ -32,7 +32,7 @@ Ubuntu Core is a member of the Ubuntu family. It's an open source project that w
 * [Interactive chat on Matrix.org](https://matrix.to/#/#snapd:ubuntu.com)
 * [Product roadmap](https://snapcraft.io/docs/snapd-roadmap)
 
-Thinking about using Ubuntu Core for your next project? [Get in touch!](https://ubuntu.com/core/contact-us?product=core-overview) 
+Thinking about using Ubuntu Core for your next project? [Get in touch!](https://ubuntu.com/core/contact-us?product=core-overview)
 
 <!-- Metadata for discourse module -->
 
@@ -47,4 +47,5 @@ How-to guides <how-to-guides/index>
 Reference <reference/index>
 Explanation <explanation/index>
 How to contribute <contributing>
+Embedded Applications <embedded-applications/index>
 

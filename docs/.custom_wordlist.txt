@@ -119,6 +119,8 @@ finalize
 flavor
 fonts
 Fosstodon
+FPGA
+FPGAd
 freefont
 gapped
 gapped
