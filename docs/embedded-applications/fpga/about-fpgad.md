@@ -1,10 +1,10 @@
 (about-fpgad)=
 
-# FPGAd
+# About FPGAd and provider snaps
 
+## Provider snaps
 
 ## Softeners
-
 
 ## Interfaces
 

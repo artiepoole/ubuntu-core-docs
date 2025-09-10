@@ -41,7 +41,9 @@ There are two ways to interface with FPGAd to control FPGA devices:
 :maxdepth: 2
 :glob:
 
-About FPGAd <about-fpgad>
+About FPGAd and provider snaps <about-fpgad>
 Writing a Provider Snap <writing-a-provider-snap>
 Using a provider snap <using-provider-snap>
 FPGAd interface reference <fpgad-reference/index>
+Command line interface reference <cli>
+DBus interface reference <dbus>
