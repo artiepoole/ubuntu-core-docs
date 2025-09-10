@@ -2,9 +2,7 @@
 
 # Ubuntu Core for FPGA devices
 
-- [About FPGAd](about-fpgad)
-- [Writing a provider snap](writing-a-provider-snap)
-- [Using a provider snap](using-provider-snap)
+[//]: # (TODO: background and justification for this page existing)
 
 Due to the strict containerisation of applications, which is fundamental for Ubuntu Core, access to the various system files required to interface with hardware and their drivers are not available to applications on Ubuntu Core.
 In a classic (as in, non-Core) version of Ubuntu/Linux, these files can be written to and read from by any application, with access being controlled by the Discretionary Access Control (DAC) permission system.
@@ -18,10 +16,7 @@ Therefore, in order to have a snap be accepted by the store team to be installab
 Highly privileged permissions cannot automatically be enabled (interfaces will not be auto-connected), unless explicitly enabled by the store team.
 Therefore, FPGAd, a canonical owned snap, creates a gateway to access the underlying FPGA subsystem without the need for your snap to have these super-privileged interfaces.
 
-There are two ways to interface with FPGAd to control FPGA devices:
-
-1) using the provided DBus interface, see \<here\> for details.
-2) using the provided FPGAd command line interface (CLI) detailed \<here\>
+See [About FPGAd and provider snaps](about-fpgad) for more information on making use of FPGAd on Ubuntu Core.
 
 ## Background
 
@@ -42,8 +37,3 @@ There are two ways to interface with FPGAd to control FPGA devices:
 :glob:
 
 About FPGAd and provider snaps <about-fpgad>
-Writing a Provider Snap <writing-a-provider-snap>
-Using a provider snap <using-provider-snap>
-FPGAd interface reference <fpgad-reference/index>
-Command line interface reference <cli>
-DBus interface reference <dbus>
