@@ -2,16 +2,17 @@
 
 # About FPGAd and provider snaps
 
-(writing-a-provider-snaps)=
-
-
-
-A provider snap is a snap which contains bitstreams, device tree overlays, meta data (e.g. shell.json for dfx-mgr bitstreams) and user space applications to interface with the running bitstream.
+A provider snap is a snap which contains bitstreams, device tree overlays, metadata (e.g. shell.json for dfx-mgr bitstreams) and user space applications to interface with the running bitstream.
 It should also contain at least one snap application which can be configured to load at startup or run on command.
-This can be anything from a python script to make a single call to load a bitstream/apply an overlay, to a full binary application which prepares the device, ensures everything is working and runs a GUI application.
+This could be simple like a python script to make a single call to load a bitstream/apply an overlay, or a full binary application which prepares the device, ensures everything is working and runs a GUI application with continuous monitoring.
 
+The following sections describe the process of using FPGAd directly (using the command line interface (CLI) as well as providing guidance for writing and using provider snaps.
 
-##Before starting
+## Provider snaps
+
+### Writing a provider snap
+
+#### Before starting
 
 Before endeavouring to write a provider snap, please come up to speed with the [Craft a snap](https://documentation.ubuntu.com/snapcraft/stable/tutorials/craft-a-snap/) tutorial. It will describe the overarching process of packing a snap.
 
@@ -19,7 +20,13 @@ If you intend to make the snap package publicly available (or available unlisted
 
 The snap can be built from source automatically, alleviating some of the maintenance burden. See [Manage revisions and releases](https://documentation.ubuntu.com/snapcraft/stable/how-to/publishing/manage-revisions-and-releases/) for more information on that subject.
 
-### Process overview
+It is also definitely work looking at the [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/) snap as an an example of a provider snap.
+It is written in rust and uses FPGAd's [DBus](#dbus) interface to initiate the load on startup.
+The provided [README](https://github.com/canonical/k26-default-bitstreams/blob/main/README.md) on the [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/) repository provides an explanation of the contained
+`snap/snapcraft.yaml`.
+If you're planning to use Rust for your application, the associated source code can be used as a basis for using the [zbus](https://docs.rs/zbus/latest/zbus/) crate to interface with FPGAd via DBus (examples in other languages may come in the future).
+
+#### Process overview
 
 In order to write a provider snap, you need to undertake the following steps:
 
@@ -49,22 +56,88 @@ In order to write a provider snap, you need to undertake the following steps:
 - add the above
   `plugs: <your-plug-name>` to each application requiring access to FPGAd's DBus interfaces. See [snapcraft.yaml explained](#snapcraftyaml-explained) for more about the DBus plug.
 
-## Writing a provider snap
+Each of these steps is outlined by following the below subsections.
 
-The [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/) snap is an example of a provider snap.
-It is written in rust and uses FPGAd's [DBus](#dbus) interface to initiate the load on startup.
-The provided [README](https://github.com/canonical/k26-default-bitstreams/blob/main/README.md) on the [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/) repository provides an explanation of the contained
-`snap/snapcraft.yaml`.
-If you're planning to use Rust for your application, the associated source code can be used as a basis for using the [zbus](https://docs.rs/zbus/latest/zbus/) crate to interface with FPGAd via DBus (examples in other languages may come in the future).
+#### creating the snapcraft.yaml
+
+The first steps is to create a
+`snapcraft.yaml`.
+For this you can run
+
+```
+cd path/to/project/root
+mkdir snap
+touch snap/snapcraft.yaml
+```
+
+or create the file in any way you normally would.
+
+```{note}
+The snapcraft.yaml must be inside the snap directory at the project root
+```
+
+Below is a template which can be used to get started, please note that anything inside of
+`<>` is to be replaced:
+
+```yaml
+name: <name of snap> # note: must match any registration if you registered a snap
+base: core24 # or core26 - should match Core image base version
+summary: <your summary here>
+description: |
+  <Your longer description here>
+grade: devel # or stable etc
+confinement: strict # must be strict for Ubuntu Core - can be devmode if for classical image
+plugs:
+  <dbus-iface-name>: # It is recommended to use `fpgad-dbus` as the name here
+    interface: dbus
+    bus: system
+    name: com.canonical.fpgad
+  #<any other plugs you may need>:
+apps:
+  <your startup app name>: # this applicatoin runs on startup due to `daemon: oneshot`
+    command: bin/<app1 binary name>
+    daemon: oneshot # to run once on startup
+    plugs:
+      - fpgad-dbus
+      <...>
+    restart-condition: <always> # optional
+    start-timeout: <30s> # not optional if restart-condition specified
+  <your manual app name>: # this application can be run manually. If it matches the snap name it can be called using the snap name wihtout <snap-name>.<app-name> syntax
+    command: bin/<app2 binary name>
+  plugs:
+    - fpgad-dbus
+    <...>
+parts:
+  <app1 binary name>:
+    plugin: <plugin> # see LINK for information on building inside a snap
+    source: <relative/path/to/source>
+    <...>
+  <app2 binary name>:
+    plugin: <plugin> # see LINK for information on building inside a snap
+    source: <relative/path/to/source>
+<...>
+<remote-bitstream-data>:
+  plugin: dump
+  source: <git repository url>
+  source-type: git
+  override-build: |
+    mkdir -p $SNAPCRAFT_PART_INSTALL/data/<name of snap>
+    cp <repository/path/to/file(s)> $SNAPCRAFT_PART_INSTALL/data/<name of snap>/
+<local-bitstream-data>:
+  plugin: dump
+  source: <relative/path/to/source>
+  source-type: local
+  organize:
+    <path/to/source/dir>: data/<name of snap>
+```
+
+#### writing the dbus application
+
+####
 
 [//]: # ( TODO: edit the following to reference "my-snap" or something)
 
 ### snapcraft.yaml template
-
-```yaml
-<some template>
-```
-
 
 #### Using the content Interface
 
