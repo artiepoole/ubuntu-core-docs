@@ -4,9 +4,10 @@
 
 ## Provider snaps
 
-## Softeners
+## Platforms and Softeners
 
 ## Interfaces
+
 
 ### DBus
 (dbus)=
@@ -292,6 +293,8 @@ Here `version` just runs a simple script to generate a unique version string, `k
 ## Content Interface
 
 [//]: # ( TODO: edit the following to reference "my-snap" or something)
+
+## publishing your provider snap
 
 # Using a provider snap
 

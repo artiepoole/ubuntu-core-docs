@@ -4,7 +4,7 @@
 
 [//]: # (TODO: background and justification for this page existing)
 
-Due to the strict containerisation of applications, which is fundamental for Ubuntu Core, access to the various system files required to interface with hardware and their drivers are not available to applications on Ubuntu Core.
+Due to the strict containerization of applications, which is fundamental for Ubuntu Core, access to the various system files required to interface with hardware and their drivers are not available to applications on Ubuntu Core.
 In a classic (as in, non-Core) version of Ubuntu/Linux, these files can be written to and read from by any application, with access being controlled by the Discretionary Access Control (DAC) permission system.
 This means that if a user doesn't have access, `sudo` can be used to elevate the permissions and grant access.
 
@@ -18,17 +18,42 @@ Therefore, FPGAd, a canonical owned snap, creates a gateway to access the underl
 
 See [About FPGAd and provider snaps](about-fpgad) for more information on making use of FPGAd on Ubuntu Core.
 
-## Background
+## Overview
 
-## Getting Started
+The manual loading of bitstreams can still be conducted using bash commands (i.e. manually writing copying firmware into `/lib/firmware/` and loading it by writing to the sysfs files) but vendor provided helper applications (such as dfx-mgr on AMD-Xilinx products) cannot be installed or run on Ubuntu Core.
+Therefore, FPGAd contains these vendor provided applications, named [softeners](about-fpgad.md/#platforms-and-softeners) in the context of FPGAd, and provide access to these via the [command line interface (CLI)](cli).
+This [CLI](cli) also provides a way to control bitstream loading and overlays from
 
-## Writing a provider snap
+## Getting Started with FPGAd
 
-### DBus
-### CLI
+First you must install an Ubuntu Core image on an FPGA enabled device. If you are using a custom image, add
+```yaml
+<some image definition yaml snippet here>
+```
+to the image definition to add FPGAd to the image, or run
+```shell
+sudo snap install fpgad
+```
+to install FPGAd in an already installed image.
 
+The necessary interfaces are enabled automatically so FPGAd is ready to use e.g.
+```shell
+fpgad status
+```
+.
+As soon as a snap application attempts to connect to the `fpgad:daemon-dbus` interface (a DBus interface hosted at `com.canonical.fpgad`), the FPGA daemon will start and handle DBus calls.
+If you intend to use a [provider snap](about-fpgad.md#provider-snaps) then you must manually connect your snap's DBus plug to the `fpgad:daemon-dbus` e.g.:
+```shell
+sudo snap connect <your-snap>:fpgad-dbus fpgad:daemon-dbus
+```
+where `fpgad-dbus` is a recommended name for the DBus plug which is defined in your provider snap's `snapcraft.yaml`.
 
-
+For more information on the following topics, follow the provided links:
+- [FPGAd's command line interface](about-fpgad.md#cli)
+- [About provider snaps](about-fpgad.md#provider-snaps)
+- [Writing provider snaps](about-fpgad.md#writing-a-provider-snap)
+- [Using provider snaps](about-fpgad.md#using-a-provider-snap)
+- [Publishing your provider snap](about-fpgad.md#publishing-your-provider-snap)
 
 ```{toctree}
 :hidden:
