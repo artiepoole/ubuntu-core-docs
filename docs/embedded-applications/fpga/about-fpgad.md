@@ -2,17 +2,161 @@
 
 # About FPGAd and provider snaps
 
-## Provider snaps
+(writing-a-provider-snaps)=
+
+
+
+A provider snap is a snap which contains bitstreams, device tree overlays, meta data (e.g. shell.json for dfx-mgr bitstreams) and user space applications to interface with the running bitstream.
+It should also contain at least one snap application which can be configured to load at startup or run on command.
+This can be anything from a python script to make a single call to load a bitstream/apply an overlay, to a full binary application which prepares the device, ensures everything is working and runs a GUI application.
+
+
+##Before starting
+
+Before endeavouring to write a provider snap, please come up to speed with the [Craft a snap](https://documentation.ubuntu.com/snapcraft/stable/tutorials/craft-a-snap/) tutorial. It will describe the overarching process of packing a snap.
+
+If you intend to make the snap package publicly available (or available unlisted but still hosted on the snap store), please also see the guides in [Publishing](https://documentation.ubuntu.com/snapcraft/stable/how-to/publishing/) especially [How to register a snap](https://documentation.ubuntu.com/snapcraft/stable/how-to/publishing/register-a-snap/#how-to-register-a-snap) and [Publish a snap](https://documentation.ubuntu.com/snapcraft/stable/how-to/publishing/publish-a-snap/).
+
+The snap can be built from source automatically, alleviating some of the maintenance burden. See [Manage revisions and releases](https://documentation.ubuntu.com/snapcraft/stable/how-to/publishing/manage-revisions-and-releases/) for more information on that subject.
+
+### Process overview
+
+In order to write a provider snap, you need to undertake the following steps:
+
+- create a
+  `snap/snapcraft.yaml` file relative to your content root
+- provide the contents to the snap as a
+  `part:` in the
+  `snapcraft.yaml`, probably by using the [dump plugin](https://documentation.ubuntu.com/snapcraft/stable/common/craft-parts/reference/plugins/dump_plugin/) in one of the two ways:
+	1) including the content files inside a subdirectory such as
+	   `data/<my-snap>/<content>` using
+	   `parts: plugin: dump:` with
+	   `source-type: local` with
+	   `organize: ...` specified ([old example](https://github.com/canonical/k26-default-bitstreams/blob/ffe6513770c9ae5bf25e59dcf747ea3108b82161/snap/snapcraft.yaml#L36)).
+	2) including the content files from a remote git repository using
+	   `parts: plugin: dump:` with
+	   `source-type: git` and
+	   `source: <url to git repository>` with
+	   `override-build: ...` specified ([newer example](https://github.com/canonical/k26-default-bitstreams/blob/43ff1dbe4fc56c4b6e4e943bc60ff27d0025988f/snap/snapcraft.yaml#L39)).
+- write at least one application to communicate with FPGAd via DBus
+- add at least one
+  `app:` to the
+  `snapcraft.yaml`file which builds your application or runs a script (e.g. python) to communicate with FPGAd via DBus to load (some of) the provided files. See []() for more on building from source in a
+  `snapcraft.yaml`.
+- add a
+  `plug:` for the DBus communication to the
+  `snapcraft.yaml` (see [here](#snapcraftyaml-explained)) for an example)
+- add the above
+  `plugs: <your-plug-name>` to each application requiring access to FPGAd's DBus interfaces. See [snapcraft.yaml explained](#snapcraftyaml-explained) for more about the DBus plug.
+
+## Writing a provider snap
+
+The [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/) snap is an example of a provider snap.
+It is written in rust and uses FPGAd's [DBus](#dbus) interface to initiate the load on startup.
+The provided [README](https://github.com/canonical/k26-default-bitstreams/blob/main/README.md) on the [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/) repository provides an explanation of the contained
+`snap/snapcraft.yaml`.
+If you're planning to use Rust for your application, the associated source code can be used as a basis for using the [zbus](https://docs.rs/zbus/latest/zbus/) crate to interface with FPGAd via DBus (examples in other languages may come in the future).
+
+[//]: # ( TODO: edit the following to reference "my-snap" or something)
+
+### snapcraft.yaml template
+
+```yaml
+<some template>
+```
+
+
+#### Using the content Interface
+
+#### Using softeners
+
+#### snapcraft.yaml explained
+
+The
+`plugs` entry here allows the connection to be made between this snap and the fpgad daemon
+
+```yaml
+plugs:
+  fgpad-dbus:
+    interface: dbus
+    bus: system
+    name: com.canonical.fpgad
+```
+
+but it must also be added to the application:
+
+```yaml
+apps:
+  k26-default-bitstreams:
+    command: bin/k26-default-bitstreams
+    daemon: oneshot
+    plugs:
+      - fpgad-dbus
+```
+
+here
+`daemon: oneshot` means "run once on startup and then it is finished".
+
+The parts section describes how to form the snap package
+
+```yaml
+
+parts:
+  version:
+    plugin: nil
+    source: .
+    build-snaps:
+      - jq
+    override-pull: |
+      craftctl default
+      cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r .packages[0].version)
+      craftctl set version="$cargo_version+git$(date +'%Y%m%d').$(git describe --always --exclude '*')"
+  k26-default-bitstreams:
+    plugin: rust
+    source: .
+    rust-path:
+      - k26-default-bitstreams
+  bitstream-data:
+    plugin: dump
+    source: ./data/
+    source-type: local
+    organize:
+      default-bitstreams: data/k26-starter-kits
+```
+
+Here
+`version` just runs a simple script to generate a unique version string,
+`k26-default-bitstreams` part defines how to build the rust package which creates the
+`bin/k26-default-bitstreams` used in the app section and
+`bitstream-data` makes a copy of the project's
+`./data` folder available from the snap root at
+`$SNAP/data`.
+
+### Using a provider snap
+
+If running on target device:
+
+```shell
+snapcraft
+sudo snap install k26-default-bitstreams..._arm64.snap
+sudo snap connect k26-default-bitstreams:fpgad-dbus fpgad:dbus-daemon
+```
+
+```{note}
+the `fpgad:dbus-daemon` is external to this repo so may be subject to change. Check [fpgad's snapcraft.yaml](https://github.com/canonical/fpgad/blob/main/snap/snapcraft.yaml) for changes if this command fails.
+```
+
+### publishing your provider snap
 
 ## Platforms and Softeners
 
 ## Interfaces
 
+# DBus
 
-### DBus
 (dbus)=
 
-# Typical control sequence
+## Typical control sequence
 
 #### FPGA only:
 
@@ -25,7 +169,8 @@
 2. control.SetFpgaFlags(device_handle, flags) <- does check for sticking internally
 3. control.CreateOverlay(overlay_handle) <- just makes a dir and checks the subsystem created the internal files
 4. control.ApplyOverlay(overlay_handle, dtbo_path) <- writes dtbo_path to overlay and asserts overlay status
-5. status.GetFpgaState(fpga_handle) <- check it is `operating`
+5. status.GetFpgaState(fpga_handle) <- check it is
+   `operating`
 
 #### Combined:
 
@@ -33,7 +178,8 @@
 2. control.WriteBitstreamDirect
 3. control.CreateOverlay(overlay_handle) <- just makes a dir and checks the subsystem created the internal files
 4. control.ApplyOverlay(overlay_handle, dtbo_path) <- writes dtbo_path to overlay and asserts overlay status
-5. status.GetFpgaState(fpga_handle) <- check it is `operating`
+5. status.GetFpgaState(fpga_handle) <- check it is
+   `operating`
 
 #### Removing:
 
@@ -95,13 +241,15 @@ sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.c
 
 #### apply an overlay
 
-Using default `fw_search_path` generation:
+Using default
+`fw_search_path` generation:
 
 ```shell
 sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control ApplyOverlay ssss "xlnx" "fpga0" "/lib/firmware/k26-starter-kits.dtbo" ""
 ```
 
-or manually specified `fw_search_path`:
+or manually specified
+`fw_search_path`:
 
 ```shell
 sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control ApplyOverlay ssss "xlnx" "fpga0" "/lib/firmware/xilinx/k26-starter-kits/k26_starter_kits.dtbo" "/lib/firmware/xilinx/k26-starter-kits"
@@ -109,13 +257,15 @@ sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.c
 
 #### write a bitstream
 
-Using automated platform detectoin and default `fw_search_path` generation:
+Using automated platform detectoin and default
+`fw_search_path` generation:
 
 ```shell
 sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control WriteBitstreamDirect ssss "" "fpga0" "/lib/firmware/k26-starter-kits.bit.bin" ""
 ```
 
-or using specific platform and specific `fw_search_path`:
+or using specific platform and specific
+`fw_search_path`:
 
 ```shell
 sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control WriteBitstreamDirect ssss "xlnx" "fpga0" "/lib/firmware/xilinx/k26-starter-kits/k26_starter_kits.bit.bin" "/lib/firmware/"
@@ -129,12 +279,15 @@ To remove an overlay with provided platform and handle:
 sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control RemoveOverlay ss "xlnx" "fpga0"
 ```
 
-Consider using `GetOverlays` and/or `GetOverlayStatus` if you don't
+Consider using
+`GetOverlays` and/or
+`GetOverlayStatus` if you don't
 know the handle.
 
 #### other properties
 
-The virtual files contained within `/sys/class/fpga_manager/fpga*/`, which do not have specific interfaces, can be
+The virtual files contained within
+`/sys/class/fpga_manager/fpga*/`, which do not have specific interfaces, can be
 accessed by using ReadProperty or WriteProperty e.g.
 
 ```shell
@@ -153,6 +306,7 @@ sudo snap connect fpgad:fpga
 ```
 
 ### CLI
+
 # FPGAd's Command Line Interface (CLI)
 
 ## Usage
@@ -229,84 +383,6 @@ sudo ./target/debug/cli --handle=fpga0 set flags 0
 ```shell
 ./target/debug/cli status
 ./target/debug/cli --handle=fpga0 status
-```
-
-
-(writing-a-provider-snaps)=
-# Writing a provider snap
-
-- [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/)
-
-[//]: # ( TODO: edit the following to reference "my-snap" or something)
-
-## Example snapcraft.yaml
-
-
-## snapcraft.yaml explained
-
-The `plugs` entry here allows the connection to be made between this snap and the fpgad daemon
-```yaml
-plugs:
-  fgpad-dbus:
-    interface: dbus
-    bus: system
-    name: com.canonical.fpgad
-```
-but it must also be added to the application:
-```yaml
-apps:
-  k26-default-bitstreams:
-    command: bin/k26-default-bitstreams
-    daemon: oneshot
-    plugs:
-      - fpgad-dbus
-```
-here `daemon: oneshot` means "run once on startup and then it is finished".
-
-The parts section describes how to form the snap package
-```yaml
-
-parts:
-  version:
-    plugin: nil
-    source: .
-    build-snaps:
-      - jq
-    override-pull: |
-      craftctl default
-      cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r .packages[0].version)
-      craftctl set version="$cargo_version+git$(date +'%Y%m%d').$(git describe --always --exclude '*')"
-  k26-default-bitstreams:
-    plugin: rust
-    source: .
-    rust-path:
-      - k26-default-bitstreams
-  bitstream-data:
-    plugin: dump
-    source: ./data/
-    source-type: local
-    organize:
-      default-bitstreams: data/k26-starter-kits
-```
-Here `version` just runs a simple script to generate a unique version string, `k26-default-bitstreams` part defines how to build the rust package which creates the `bin/k26-default-bitstreams` used in the app section and `bitstream-data` makes a copy of the project's `./data` folder available from the snap root at `$SNAP/data`.
-
-## Content Interface
-
-[//]: # ( TODO: edit the following to reference "my-snap" or something)
-
-## publishing your provider snap
-
-# Using a provider snap
-
-If running on target device:
-```shell
-snapcraft
-sudo snap install k26-default-bitstreams..._arm64.snap
-sudo snap connect k26-default-bitstreams:fpgad-dbus fpgad:dbus-daemon
-```
-
-```{note}
-the `fpgad:dbus-daemon` is external to this repo so may be subject to change. Check [fpgad's snapcraft.yaml](https://github.com/canonical/fpgad/blob/main/snap/snapcraft.yaml) for changes if this command fails.
 ```
 
 
