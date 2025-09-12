@@ -6,13 +6,100 @@ A provider snap is a snap which contains bitstreams, device tree overlays, metad
 It should also contain at least one snap application which can be configured to load at startup or run on command.
 This could be simple like a python script to make a single call to load a bitstream/apply an overlay, or a full binary application which prepares the device, ensures everything is working and runs a GUI application with continuous monitoring.
 
-The following sections describe the process of using FPGAd directly (using the command line interface (CLI) as well as providing guidance for writing and using provider snaps.
+The next subsection explains how FPGAd `<keeps>` the original functionality of vendor provided solutions for controlling fpga devices (such as dfx-mgr for Xilinx devices). The following sections describe the process of using FPGAd directly (using the command line interface ([CLI](about-fpgad.md#command-line-interface)) and offer guidance for writing and using provider snaps.
 
-## Provider snaps
+## Platforms and Softeners
 
-### Writing a provider snap
+In order to maintain vendor provided functionality and user space helper applications, softeners were included as part of FPGAd. Softeners are simple a gatekeeper for calling those vendor specific applications, (such as dfx-mgr for Xilinx machines), and are used automatically if the device's platform compatibility string matches one of the softeners' compatibility strings. It can be overridden `NO IT CAN'T - WIP` by `STEPS TBC`.
 
-#### Before starting
+[//]: # (TODO: update once an override is available.)
+
+# Command line interface
+
+FPGAd provides a command line interface (CLI) to make manual control of the underlying FPGA subsystem possible without the need for a provider snap.
+This is useful for rapid prototyping and verification reasons, as well as being enough for situations requiring less complexity. The following subsections describe how to use the CLI to check the status, load a bitstream/apply and overlay and set properties (e.g. flags)
+
+## Usage
+
+```
+Usage: [snap run] fpgad [OPTIONS] <COMMAND>
+
+Commands:
+  load    Load a bitstream or an overlay for the given device handle
+  remove  Remove bitstream or an overlay
+  set     Write a value to an attribute within the sysfs folder e.g. to edit /sys/class/fpga_manager/fpga0/flags
+  status  Get the status information for the given device handle
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+      --handle <HANDLE>  fpga device `HANDLE` to be used for the operations. Default value for this option is calculated in runtime and the application picks the first available fpga in the system (under /sys/class/fpga_manager)
+  -h, --help             Print help
+
+```
+
+### Loading
+
+```shell
+fpgad [--handle=<device_handle>] load ( (overlay <file> [--handle=<handle>]) | (bitstream <file>) )
+```
+
+### Removing
+
+```shell
+fpgad [--handle=<device_handle>] remove ( ( overlay <HANDLE> ) | ( bitstream ) )
+```
+
+### Set
+
+```shell
+fpgad [--handle=<device_handle>] set ATTRIBUTE VALUE
+```
+
+### Status
+
+```shell
+fpgad [--handle=<device_handle>] status
+```
+
+## examples (for testing)
+
+### Load
+
+```shell
+sudo ./target/debug/cli load bitstream /lib/firmware/k26-starter-kits.bit.bin
+sudo ./target/debug/cli --handle=fpga0 load bitstream /lib/firmware/k26-starter-kits.bit.bin
+
+sudo ./target/debug/cli load overlay /lib/firmware/k26-starter-kits.dtbo
+sudo ./target/debug/cli load overlay /lib/firmware/k26-starter-kits.dtbo --handle=overlay_handle
+sudo ./target/debug/cli --handle=fpga0 load overlay /lib/firmware/k26-starter-kits.dtbo --handle=overlay_handle
+```
+
+### Remove
+
+```shell
+sudo ./target/debug/cli --handle=fpga0 remove overlay
+sudo ./target/debug/cli --handle=fpga0 remove overlay --handle=overlay_handle
+```
+
+### Set
+
+```shell
+sudo ./target/debug/cli set flags 0
+sudo ./target/debug/cli --handle=fpga0 set flags 0
+```
+
+### Status
+
+```shell
+./target/debug/cli status
+./target/debug/cli --handle=fpga0 status
+```
+
+# Provider snaps
+
+## Writing a provider snap
+
+### Before starting
 
 Before endeavouring to write a provider snap, please come up to speed with the [Craft a snap](https://documentation.ubuntu.com/snapcraft/stable/tutorials/craft-a-snap/) tutorial. It will describe the overarching process of packing a snap.
 
@@ -26,7 +113,7 @@ The provided [README](https://github.com/canonical/k26-default-bitstreams/blob/m
 `snap/snapcraft.yaml`.
 If you're planning to use Rust for your application, the associated source code can be used as a basis for using the [zbus](https://docs.rs/zbus/latest/zbus/) crate to interface with FPGAd via DBus (examples in other languages may come in the future).
 
-#### Process overview
+### Process overview
 
 In order to write a provider snap, you need to undertake the following steps:
 
@@ -58,7 +145,7 @@ In order to write a provider snap, you need to undertake the following steps:
 
 Each of these steps is outlined by following the below subsections.
 
-#### creating the snapcraft.yaml
+### creating the snapcraft.yaml
 
 The first steps is to create a
 `snapcraft.yaml`.
@@ -115,7 +202,7 @@ parts:
   <app2 binary name>:
     plugin: <plugin> # see LINK for information on building inside a snap
     source: <relative/path/to/source>
-<...>
+    <...>
 <remote-bitstream-data>:
   plugin: dump
   source: <git repository url>
@@ -130,19 +217,6 @@ parts:
   organize:
     <path/to/source/dir>: data/<name of snap>
 ```
-
-#### writing the dbus application
-
-####
-
-[//]: # ( TODO: edit the following to reference "my-snap" or something)
-
-### snapcraft.yaml template
-
-#### Using the content Interface
-
-#### Using softeners
-
 #### snapcraft.yaml explained
 
 The
@@ -205,6 +279,20 @@ Here
 `./data` folder available from the snap root at
 `$SNAP/data`.
 
+
+
+## writing the dbus application
+
+
+[//]: # ( TODO: edit the following to reference "my-snap" or something)
+
+
+
+
+### Using softeners
+
+### Using the content Interface
+
 ### Using a provider snap
 
 If running on target device:
@@ -221,13 +309,9 @@ the `fpgad:dbus-daemon` is external to this repo so may be subject to change. Ch
 
 ### publishing your provider snap
 
-## Platforms and Softeners
 
-## Interfaces
 
 # DBus
-
-(dbus)=
 
 ## Typical control sequence
 
@@ -376,86 +460,6 @@ sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.c
 ```shell
 sudo snap install fpgad
 sudo snap connect fpgad:fpga
-```
-
-### CLI
-
-# FPGAd's Command Line Interface (CLI)
-
-## Usage
-
-```
-Usage: [snap run] fpgad [OPTIONS] <COMMAND>
-
-Commands:
-  load    Load a bitstream or an overlay for the given device handle
-  remove  Remove bitstream or an overlay
-  set     Write a value to an attribute within the sysfs folder e.g. to edit /sys/class/fpga_manager/fpga0/flags
-  status  Get the status information for the given device handle
-  help    Print this message or the help of the given subcommand(s)
-
-Options:
-      --handle <HANDLE>  fpga device `HANDLE` to be used for the operations. Default value for this option is calculated in runtime and the application picks the first available fpga in the system (under /sys/class/fpga_manager)
-  -h, --help             Print help
-
-```
-
-### Loading
-
-```shell
-fpgad [--handle=<device_handle>] load ( (overlay <file> [--handle=<handle>]) | (bitstream <file>) )
-```
-
-### Removing
-
-```shell
-fpgad [--handle=<device_handle>] remove ( ( overlay <HANDLE> ) | ( bitstream ) )
-```
-
-### Set
-
-```shell
-fpgad [--handle=<device_handle>] set ATTRIBUTE VALUE
-```
-
-### Status
-
-```shell
-fpgad [--handle=<device_handle>] status
-```
-
-## examples (for testing)
-
-### Load
-
-```shell
-sudo ./target/debug/cli load bitstream /lib/firmware/k26-starter-kits.bit.bin
-sudo ./target/debug/cli --handle=fpga0 load bitstream /lib/firmware/k26-starter-kits.bit.bin
-
-sudo ./target/debug/cli load overlay /lib/firmware/k26-starter-kits.dtbo
-sudo ./target/debug/cli load overlay /lib/firmware/k26-starter-kits.dtbo --handle=overlay_handle
-sudo ./target/debug/cli --handle=fpga0 load overlay /lib/firmware/k26-starter-kits.dtbo --handle=overlay_handle
-```
-
-### Remove
-
-```shell
-sudo ./target/debug/cli --handle=fpga0 remove overlay
-sudo ./target/debug/cli --handle=fpga0 remove overlay --handle=overlay_handle
-```
-
-### Set
-
-```shell
-sudo ./target/debug/cli set flags 0
-sudo ./target/debug/cli --handle=fpga0 set flags 0
-```
-
-### Status
-
-```shell
-./target/debug/cli status
-./target/debug/cli --handle=fpga0 status
 ```
 
 

@@ -21,8 +21,8 @@ See [About FPGAd and provider snaps](about-fpgad) for more information on making
 ## Overview
 
 The manual loading of bitstreams can still be conducted using bash commands (i.e. manually writing copying firmware into `/lib/firmware/` and loading it by writing to the sysfs files) but vendor provided helper applications (such as dfx-mgr on AMD-Xilinx products) cannot be installed or run on Ubuntu Core.
-Therefore, FPGAd contains these vendor provided applications, named [softeners](about-fpgad.md/#platforms-and-softeners) in the context of FPGAd, and provide access to these via the [command line interface (CLI)](cli).
-This [CLI](cli) also provides a way to control bitstream loading and overlays from
+Therefore, FPGAd contains these vendor provided applications, named [softeners](about-fpgad.md#platforms-and-softeners) in the context of FPGAd, and provide access to these via the [command line interface (CLI)](about-fpgad.md#command-line-interface).
+This [CLI](about-fpgad.md#command-line-interface) also provides a way to control bitstream loading and overlays from
 
 ## Getting Started with FPGAd
 
@@ -49,7 +49,7 @@ sudo snap connect <your-snap>:fpgad-dbus fpgad:daemon-dbus
 where `fpgad-dbus` is a recommended name for the DBus plug which is defined in your provider snap's `snapcraft.yaml`.
 
 For more information on the following topics, follow the provided links:
-- [FPGAd's command line interface](about-fpgad.md#cli)
+- [FPGAd's command line interface](about-fpgad.md#command-line-interface)
 - [About provider snaps](about-fpgad.md#provider-snaps)
 - [Writing provider snaps](about-fpgad.md#writing-a-provider-snap)
 - [Using provider snaps](about-fpgad.md#using-a-provider-snap)
