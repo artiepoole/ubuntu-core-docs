@@ -4,8 +4,7 @@
 
 A provider snap is a snap which contains bitstreams, device tree overlays, metadata (e.g. shell.json for dfx-mgr bitstreams) and user space applications to interface with the running bitstream. It should also contain at least one snap application which can be configured to load at startup or run on command. This could be simple like a bash/python script to make a single call to load a bitstream/apply an overlay using busctl, or a full binary application which prepares the device, ensures everything is working and runs a GUI application with continuous monitoring.
 
-The next subsection explains how FPGAd
-`<keeps>` the original functionality of vendor provided solutions for controlling fpga devices (such as dfx-mgr for Xilinx devices). The following sections describe the process of using FPGAd directly (using the command line interface ([CLI](about-fpgad.md#command-line-interface)) and offer guidance for writing and using provider snaps.
+The next subsection explains how FPGAd retains the original functionality of vendor provided solutions for controlling fpga devices (such as dfx-mgr for Xilinx devices). The following sections describe the process of using FPGAd directly (using the command line interface ([CLI](about-fpgad.md#command-line-interface)) and offer guidance for writing and using provider snaps.
 
 ## Platforms and Softeners
 
@@ -20,6 +19,7 @@ In order to maintain vendor provided functionality and user space helper applica
 FPGAd provides a command line interface (CLI) to make manual control of the underlying FPGA subsystem possible without the need for a provider snap. This is useful for rapid prototyping and verification reasons, as well as being enough for situations requiring less complexity. The following subsections describe how to use the CLI to check the status, load a bitstream/apply and overlay and set properties (e.g. flags)
 
 ## Usage
+
 ```
 Usage: [snap run] fpgad [OPTIONS] <COMMAND>
 
@@ -53,6 +53,7 @@ COMMANDs:
     └── bitstream
             Remove active bitstream from FPGA (bitstream removal is vendor specific)
 ```
+
 ## Explicit versions
 
 ### Apply an overlay
@@ -153,7 +154,7 @@ In order to write a provider snap, you need to undertake the following steps:
        `parts: plugin: dump:` with
        `source-type: git` and
        `source: <url to git repository>` with
-       `override-build: ...` specified ([newer example](https://github.com/canonical/k26-default-bitstreams/blob/43ff1dbe4fc56c4b6e4e943bc60ff27d0025988f/snap/snapcraft.yaml#L39)).
+       `override-build: ...` specified ([newer example](https://github.com/canonical/k26-default-bitstreams/blob/main/snap/snapcraft.yaml)).
 - write at least one application to communicate with FPGAd via DBus
 - add at least one
   `app:` to the
@@ -167,7 +168,7 @@ In order to write a provider snap, you need to undertake the following steps:
 
 Each of these steps is outlined by following the below subsections.
 
-### creating the snapcraft.yaml
+### Crafting the snapcraft.yaml
 
 The first steps is to create a
 `snapcraft.yaml`. For this you can run
@@ -211,7 +212,7 @@ apps:
     restart-condition: <always> # optional
     start-timeout: <30s> # not optional if restart-condition specified
     install-mode: disable # see the "run on startup" section for explanation and required hooks
-  <your manual app name>: # this application can be run manually. If it matches the snap name it can be called using the snap name wihtout <snap-name>.<app-name> syntax
+  <your manual app name>: # this application can be run manually. If it matches the name of snap it can be called using the name of snap without <name of snap>.<name of app> syntax
     command: bin/<manual-run binary name>
   plugs:
     - fpgad-dbus
@@ -240,19 +241,31 @@ parts:
     <path/to/source/dir>: data/<name of snap>
 ```
 
-See [the snapcraft docs](https://documentation.ubuntu.com/snapcraft/stable/) for more details on using and crafting snaps. See [this specific page](https://documentation.ubuntu.com/snapcraft/stable/reference/project-file/snapcraft-yaml/) for more on the keys and values available for `snapcraft.yaml` files.
+See [the snapcraft docs](https://documentation.ubuntu.com/snapcraft/stable/) for more details on using and crafting snaps. See [this specific page](https://documentation.ubuntu.com/snapcraft/stable/reference/project-file/snapcraft-yaml/) for more on the keys and values available for
+`snapcraft.yaml` files.
 
 #### Run on startup
 
-As seen in the two applications in the [snapcraft.yaml template](#creating-the-snapcraftyaml) above, applications can either be normal (absence of `daemon:` keyword) or defined as a `daemon: <type>` (run on startup, for example). If specified, there are multiple types of daemons, and they are similar to those available in systemd service files. See [services and daemons](https://snapcraft.io/docs/services-and-daemons) for more information on snap daemon types.
+As seen in the two applications in the [snapcraft.yaml template](#crafting-the-snapcraftyaml) above, applications can either be normal (absence of
+`daemon:` keyword) or defined as a
+`daemon: <type>` (run on startup, for example). If specified, there are multiple types of daemons, and they are similar to those available in systemd service files. See [services and daemons](https://snapcraft.io/docs/services-and-daemons) for more information on snap daemon types.
 
-If your intention is to load a bitstream on startup, there are a few details to be made aware of in order to be able to get the snap containing the daemon installed, connected and enabled. For applications communicating with `fpgad:daemon-dbus`, that connection must be made before running your daemon. If this wasn't the case, then everything could be left as default and during install the snap would be installed, any hooks would be run, and then the daemons with "install-mode: enable" (the default value) would be started. If this application fails to start, then the snap install fails and the install does not stick.
+If your intention is to load a bitstream on startup, there are a few details to be made aware of in order to be able to get the snap containing the daemon installed, connected and enabled. For applications communicating with
+`fpgad:daemon-dbus`, that connection must be made before running your daemon. If this wasn't the case, then everything could be left as default and during install the snap would be installed, any hooks would be run, and then the daemons with "install-mode: enable" (the default value) would be started. If this application fails to start, then the snap install fails and the install does not stick.
 
 To allow the snap to install without running the daemon, but to minimise the number of manual steps required, the following process can be used:
-- use `install-mode: disable` in the daemon tags, as shown in [the template](#creating-the-snapcraftyaml)
-- make two hooks in the `snap/hooks/` directory called `connect-plug-fpgad-dbus` and `disconnect-plug-fpgad-dbus` (disconnect is optional) (`fpgad-dbus` is the recommended name of the plug but the format is `disconnect-plug-<name-of-interface>`)
+
+- use
+  `install-mode: disable` in the daemon tags, as shown in [the template](#crafting-the-snapcraftyaml)
+- make two hooks in the
+  `snap/hooks/` directory called
+  `connect-plug-fpgad-dbus` and
+  `disconnect-plug-fpgad-dbus` (disconnect is optional) (
+  `fpgad-dbus` is the recommended name of the plug but the format is
+  `disconnect-plug-<name-of-interface>`)
 - write hooks to enable the daemon on connect, and disable it on disconnect (as follows, or see [k26-default-bitstreams/snap/hooks](https://github.com/canonical/k26-default-bitstreams/tree/main/snap/hooks) for an example)
-- make these files executable using `chmod +x /path/to/file`
+- make these files executable using
+  `chmod +x /path/to/file`
 
 ```shell
 # File: snap/hooks/connect-plug-fpgad-dbus
@@ -266,7 +279,6 @@ snapctl start --enable <name of snap service>
 echo "<name of snap service> enabled on startup"
 ```
 
-
 ```shell
 # File: snap/hooks/disconnect-plug-fpgad-dbus
 
@@ -279,29 +291,90 @@ snapctl stop --disable <name of snap service>
 echo "<name of snap service> enabled on startup"
 ```
 
-
 ```{note}
 These commands run from inside your snap's shell so snapctl always controls the snap to which the hook belongs
 ```
+
 For more information on hooks, see the snapcraft docs on [Connect Hooks](https://snapcraft.io/docs/interface-hooks#p-36664-connect-hooks).
 
-If manual control of the service is desired, the following commands can be used.
- To start and enable it:
+If manual control of the service is desired, the following commands can be used. To start and enable it:
+
 ```
 [sudo] snap start <name of snap>.<name of application> --enable
 ```
+
 To stop and disable it:
+
 ```
 [sudo] snap stop <name of snap>.<name of application> --disable
 ```
 
-## writing the dbus application
+## Writing the dbus application
 
 [//]: # ( TODO: edit the following to reference "my-snap" or something)
+
+When it comes to actually writing an application to communicate with FPGAd, you will need to become familiar with [the FPGAd DBus interface](#dbus). There are many ways to send DBus messages. The two which are provded with many examples are provided by the [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/) example, and by the
+`busctl` snippets provided in [busctl call examples](#busctrl-call-examples). If you're intending to use Rust, the [zbus crate](https://docs.rs/zbus/latest/zbus/), following the approach documented in the k26-default-bitstreams application is recommended.
+
+For any other language, there are options for DBus frameworks in all common languages, so it is entirely up to the author to implement the necessary mappings based on the contents of the FPGAd DBus interface [API docs](#dbus).
+
+The [k24-default-bitstreams](https://github.com/canonical/k24-default-bitstreams/) (WIP) provides a similar example written in C++.
+
+In all cases, there are some nuances to the DBus interface which require the author to understand the following things: the meanings of terms such as [platforms and softeners](#platforms-and-softeners), [how to use a softener](#using-softeners) (if desired), how to provide content via the [content interface](#control-interface) provided by FPGAd.
 
 ### Using softeners
 
 ### Using the content Interface
+
+```yaml
+slots:
+  fpgad-content:
+    interface: content
+    source:
+      read:
+        - $SNAP/data/<name of snap>
+```
+
+#### Local
+
+In order to explain how to use the organize, let the content (several files, for example) exist at
+`./data/<name of snap>/<package name>/`
+
+```yaml
+parts:
+  ...
+  bitstream-data:
+    plugin: dump
+    source: ./data/<name of snap>/
+    source-type: local
+    organize:
+      <package name>: data/<name of snap>
+```
+
+where the "data" part of
+`data/<name of snap>` is necessary due to how FPGAd looks for content, and "data/" exists at
+`$SNAP_DATA/data/<name of snap>`. See [the snapcraft docs on data Locations](https://snapcraft.io/docs/data-locations) for more about
+`$SNAP_DATA`, and see [this old version of k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/tree/ffe6513770c9ae5bf25e59dcf747ea3108b82161) for an example of using this "organize" approach.
+
+#### From remote repository
+
+It is possible to fetch files from a remote repository if the separation of the loader application and bitstreams is preferable (e.g. for maintenance reasons). There are various ways of handling the putting of files into the resulting snap, but below details on option utilizing the `override-build` steps of the [dump plugin](https://documentation.ubuntu.com/snapcraft/stable/common/craft-parts/reference/plugins/dump_plugin/):
+
+```yaml
+parts:
+  ...
+  bitstream-data:
+    plugin: dump
+    source: <repo url>
+    source-type: git
+    override-build: |
+      mkdir -p $SNAPCRAFT_PART_INSTALL/data/<name of snap>
+      cp <path/to/content> $SNAPCRAFT_PART_INSTALL/data/<name of snap>/<optional subdir name> # or similar, repeat for all desired subdirs or files
+```
+
+For more information on `$SNAPCRAFT_PART_INSTALL` and similar, see [the snapcraft docs on part environment variables](https://documentation.ubuntu.com/snapcraft/stable/reference/parts/part-environment-variables/).
+
+
 
 ## Using a provider snap
 
@@ -313,6 +386,13 @@ sudo snap install <name of snap> # or use /path/to/snap if built locally
 sudo snap connect <name of snap>:fpgad-dbus fpgad:dbus-daemon
 ```
 
+and, if using the content interface:
+
+```shell
+sudo snap connect fpgad:provider-content <name of snap>:<content slot name>
+```
+
+
 ```{note}
 the  name "fpgad:dbus-daemon" is defined in the fpgad snapcraft.yaml, so may be subject to change. Check [fpgad's snapcraft.yaml](https://github.com/canonical/fpgad/blob/main/snap/snapcraft.yaml) for changes if this command fails.
 ```
@@ -320,9 +400,6 @@ the  name "fpgad:dbus-daemon" is defined in the fpgad snapcraft.yaml, so may be 
 ### publishing your provider snap
 
 # DBus
-
-[//]: # (TODO: use the link below as reference of API doc)
-https://networkmanager.dev/docs/api/latest/spec.html
 
 ```
 busctl introspect com.canonical.fpgad /com/canonical/fpgad/status
@@ -376,7 +453,9 @@ This is the name used to create or access an overlay. These are the names of the
 #### firmware_lookup_path
 
 [//]: # (TODO: populate this properly)
-- empty string or full path to the directory containing the dtbo file and associated bitstreams and helper files (typically points to `$SNAP_DATA/...` or a snap's content interface directory)
+
+- empty string or full path to the directory containing the dtbo file and associated bitstreams and helper files (typically points to
+  `$SNAP_DATA/...` or a snap's content interface directory)
 
 ### Error strings
 
@@ -463,7 +542,10 @@ Below is a table summarizing the various FpgadError types (printed as
 
 #### GetOverlayStatus
 
-- <b>Description:</b> Read the current `status` and `path` attributes of a device-tree overlay directory in `/sys/kernel/config/device-tree/overlays/<overlay_handle>`
+- <b>Description:</b> Read the current
+  `status` and
+  `path` attributes of a device-tree overlay directory in
+  `/sys/kernel/config/device-tree/overlays/<overlay_handle>`
 
 - <b>Signature:</b> ss → s
 
@@ -472,7 +554,10 @@ Below is a table summarizing the various FpgadError types (printed as
     - str: [overlay_handle](#overlay_handle) - valid device handle required.
 
 - <b>Output:</b>
-    - str: the contents `/sys/kernel/config/device-tree/overlays/<overlay_handle>/path` followed by a space and then `/sys/kernel/config/device-tree/overlays/<overlay_handle>/status` e.g. `"\"k26_starter_kits.dtbo\" applied"`
+    - str: the contents
+      `/sys/kernel/config/device-tree/overlays/<overlay_handle>/path` followed by a space and then
+      `/sys/kernel/config/device-tree/overlays/<overlay_handle>/status` e.g.
+      `"\"k26_starter_kits.dtbo\" applied"`
       or [FpgadError string](#error-strings)
 
 ---
@@ -487,7 +572,10 @@ Below is a table summarizing the various FpgadError types (printed as
     - <i>(none)</i>
 
 - <b>Output:</b>
-    - str: the names of all subdirs of `/sys/kernel/config/device-tree/overlays/` separated by newline (`\n`) characters e.g. `"overlay0\noverlay1"` or [FpgadError string](#error-strings)
+    - str: the names of all subdirs of
+      `/sys/kernel/config/device-tree/overlays/` separated by newline (
+      `\n`) characters e.g.
+      `"overlay0\noverlay1"` or [FpgadError string](#error-strings)
 
 ---
 
@@ -501,7 +589,8 @@ Below is a table summarizing the various FpgadError types (printed as
     - str: [device_handle](#device-handle) - valid device handle required.
 
 - <b>Output:</b>
-    - str: The compatibility string of the requested device_handle as required for [platform_string](#platform-string) inputs (e.g. `"dev0:vendor,specific-platform"`) or [FpgadError string](#error-strings)
+    - str: The compatibility string of the requested device_handle as required for [platform_string](#platform-string) inputs (e.g.
+      `"dev0:vendor,specific-platform"`) or [FpgadError string](#error-strings)
 
 ---
 
@@ -524,12 +613,16 @@ Below is a table summarizing the various FpgadError types (printed as
 
 #### ReadProperty
 
-- <b>Description:</b> Report the contents of any attribute file at the provided path, which must be a child of the `/sys/class/fpga_manager/` directory
+- <b>Description:</b> Report the contents of any attribute file at the provided path, which must be a child of the
+  `/sys/class/fpga_manager/` directory
 
 - <b>Signature:</b> s → s
 
 - <b>Inputs:</b>
-    - str: The path of the desired fpga_manager attribute e.g.  `"/sys/class/fpga_manager/<device_handle>/flags"`, `"/sys/class/fpga_manager/<device_handle>/name"` or `"/sys/class/fpga_manager/<device_handle>/key"`
+    - str: The path of the desired fpga_manager attribute e.g.
+      `"/sys/class/fpga_manager/<device_handle>/flags"`,
+      `"/sys/class/fpga_manager/<device_handle>/name"` or
+      `"/sys/class/fpga_manager/<device_handle>/key"`
 
 - <b>Output:</b>
     - str: The contents of the requested file or [FpgadError string](#error-strings)
@@ -556,24 +649,30 @@ Below is a table summarizing the various FpgadError types (printed as
 
 #### ApplyOverlay
 
-- <b>Description:</b> Create a new directory in `/sys/kernel/config/device-tree/overlays/`, and write the `.dtbo` file's path (relative to firmware_lookup_path) to `/sys/kernel/config/device-tree/overlays/<overlay_handle>/path`, before checking that the path write stuck, and the status changed to "applied" or return an error.
+- <b>Description:</b> Create a new directory in
+  `/sys/kernel/config/device-tree/overlays/`, and write the
+  `.dtbo` file's path (relative to firmware_lookup_path) to
+  `/sys/kernel/config/device-tree/overlays/<overlay_handle>/path`, before checking that the path write stuck, and the status changed to "applied" or return an error.
 
 - <b>Signature:</b> ssss → s
 
 - <b>Inputs:</b>
     - str: [platform_string](#platform-string)
     - str: [overlay_handle](#overlay_handle)
-    - str: overlay_source_path - full path to the `.dtbo` overlay file to be applied
+    - str: overlay_source_path - full path to the
+      `.dtbo` overlay file to be applied
     - str: [firmware_lookup_path](#firmware-lookup-path)
 
 - <b>Output:</b>
-    - str: Result of the operation in the form of `"<overlay_source_path> loaded via \"/sys/kernel/config/device-tree/overlays/<overlay_handle>\" using firmware lookup path: \'\"<firmware_lookup_path>\"\'"` or [FpgadError string](#error-strings)
+    - str: Result of the operation in the form of
+      `"<overlay_source_path> loaded via \"/sys/kernel/config/device-tree/overlays/<overlay_handle>\" using firmware lookup path: \'\"<firmware_lookup_path>\"\'"` or [FpgadError string](#error-strings)
 
 ---
 
 #### RemoveOverlay
 
-- <b>Description:</b> Delete the directory at `/sys/kernel/config/device-tree/overlays/<overlay_handle>`, thus removing the overlay. Note, this may not unload any loaded bitstreams - this is driver/platform specific.
+- <b>Description:</b> Delete the directory at
+  `/sys/kernel/config/device-tree/overlays/<overlay_handle>`, thus removing the overlay. Note, this may not unload any loaded bitstreams - this is driver/platform specific.
 
 - <b>Signature:</b> ss → s
 
@@ -582,13 +681,16 @@ Below is a table summarizing the various FpgadError types (printed as
     - str: [overlay_handle](#overlay-handle)
 
 - <b>Output:</b>
-    - str: Result of the operation in the form of `"<overlay_handle> removed by deleting \"/sys/kernel/config/device-tree/overlays/<overlay_handle>\""` or [FpgadError string](#error-strings)
+    - str: Result of the operation in the form of
+      `"<overlay_handle> removed by deleting \"/sys/kernel/config/device-tree/overlays/<overlay_handle>\""` or [FpgadError string](#error-strings)
 
 ---
 
 #### SetFpgaFlags
 
-- <b>Description:</b> Write `flags` to `/sys/class/fpga_manager/<device_handle>/flags`
+- <b>Description:</b> Write
+  `flags` to
+  `/sys/class/fpga_manager/<device_handle>/flags`
 
 - <b>Signature:</b> ssu → s
 
@@ -598,13 +700,18 @@ Below is a table summarizing the various FpgadError types (printed as
     - u32: flags - decimal representation of the flags
 
 - <b>Output:</b>
-    - str: Result of the operation in the form of `"Flags set to <flags> for <device_handle>"`or [FpgadError string](#error-strings)
+    - str: Result of the operation in the form of
+      `"Flags set to <flags> for <device_handle>"`or [FpgadError string](#error-strings)
 
 ---
 
 #### WriteBitstreamDirect
 
-- <b>Description:</b> Set the kernel firmware path to `firmware_lookup_path` before writing the `bitstream_path_str` relative to `firmware_lookup_path` to `/sys/class/fpga_manager/<device_handle>/firmware`
+- <b>Description:</b> Set the kernel firmware path to
+  `firmware_lookup_path` before writing the
+  `bitstream_path_str` relative to
+  `firmware_lookup_path` to
+  `/sys/class/fpga_manager/<device_handle>/firmware`
 
 - <b>Signature:</b> ssss → s
 
@@ -615,22 +722,26 @@ Below is a table summarizing the various FpgadError types (printed as
     - str: [firmware_lookup_path](#firmware-lookup-path)
 
 - <b>Output:</b>
-    - str: Result of the operation in the form of `"<bitstream_path_str> loaded to fpga0 using firmware lookup path: \'\"<firmware_lookup_path>\"\'"` or [FpgadError string](#error-strings)
+    - str: Result of the operation in the form of
+      `"<bitstream_path_str> loaded to fpga0 using firmware lookup path: \'\"<firmware_lookup_path>\"\'"` or [FpgadError string](#error-strings)
 
 ---
 
 #### WriteProperty
 
-- <b>Description:</b> Write to any attribute file at the provided path, which must be a child of the `/sys/class/fpga_manager/` directory
+- <b>Description:</b> Write to any attribute file at the provided path, which must be a child of the
+  `/sys/class/fpga_manager/` directory
 
 - <b>Signature:</b> ss → s
 
 - <b>Inputs:</b>
-    - str: property_path_str - full path to the desired attribute file to write into. Must be a child of `/sys/class/fpga_manager/`
+    - str: property_path_str - full path to the desired attribute file to write into. Must be a child of
+      `/sys/class/fpga_manager/`
     - str: data - the data to write to the provided attribute file
 
 - <b>Output:</b>
-    - str: Result of the operation in the form of `"<data> written to <property_path_str>"` or [FpgadError string](#error-strings)
+    - str: Result of the operation in the form of
+      `"<data> written to <property_path_str>"` or [FpgadError string](#error-strings)
 
 ## Typical control sequence
 
