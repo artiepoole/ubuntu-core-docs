@@ -12,6 +12,8 @@ In order to maintain vendor provided functionality and user space helper applica
 `NO IT CAN'T - WIP` by
 `STEPS TBC`.
 
+Various softeners have their own approaches to detection of available firmware packages to be loaded, and these only work if the application has access to a full directory structure. Due to the nature of the snap confinement, these file must be provided via "content interface" which allows one snap to have access to all the provided files in another snap. This mechanism is used by FPGAd to enable softeners, and is detailed in the [content interface](#the-content-interface) section.
+
 [//]: # (TODO: update once an override is available.)
 
 # Command line interface
@@ -202,6 +204,12 @@ plugs:
     bus: system
     name: com.canonical.fpgad
   #<any other plugs you may need>:
+slots: # this whole slot key is only necessary if using softeners.
+  fpgad-bitstreams:
+    interface: content
+    source:
+      read:
+        - $SNAP/data/<name of snap>/ # can be anything, but must match the bitstream data directories
 apps:
   <your startup app name>: # this application runs on startup due to `daemon: oneshot`
     command: bin/<startup binary name>
@@ -311,8 +319,6 @@ To stop and disable it:
 
 ## Writing the dbus application
 
-[//]: # ( TODO: edit the following to reference "my-snap" or something)
-
 When it comes to actually writing an application to communicate with FPGAd, you will need to become familiar with [the FPGAd DBus interface](#dbus). There are many ways to send DBus messages. The two which are provded with many examples are provided by the [k26-default-bitstreams](https://github.com/canonical/k26-default-bitstreams/) example, and by the
 `busctl` snippets provided in [busctl call examples](#busctrl-call-examples). If you're intending to use Rust, the [zbus crate](https://docs.rs/zbus/latest/zbus/), following the approach documented in the k26-default-bitstreams application is recommended.
 
@@ -324,7 +330,31 @@ In all cases, there are some nuances to the DBus interface which require the aut
 
 ### Using softeners
 
-### Using the content Interface
+Softeners are the translation layer between FPGAd DBus calls and the vendor provided applications for custom handling of FPGA firmware loading. One example is [dfx-mgr](https://github.com/Xilinx/dfx-mgr) for Xilinx devices. By default (without manual override), FPGAd's command line interface will use an appropriate softener if available.
+
+If you plan is to use softeners to control the FPGA subsystem you need only provide a valid platform compatibility string for the softener as the [platform_string](#platform-string) argument for any DBus calls requiring it. You must also, however, set up and connect [the content interface](#the-content-interface) between the calling snap and FPGAd in order for the softener to inspect the provided files.
+
+#### The dfx-mgr softener
+
+```{warning}
+The dfx-mgr softener is a WIP at time of writing.
+```
+
+[//]: # (TODO: this section cannot be written until the dfx-mgr softener exists!)
+
+#### Other softeners
+
+```{warning}
+There are no other softeners planned or available - please comment on or create a "feature request" issue on the FPGAd repository (https://github.com/canonical/fpgad/issues) and provide details on how we can begin implementing. The other softeners are missing due to a lack of hardware availability and lack of associated bitstreeams to test with.
+```
+
+### The content Interface
+
+In order to give fpgad access to a set of files provided by your provider snap, the [content interface](https://snapcraft.io/docs/content-interface)  is used. In short, this works by creating any number of links from within a directory owned by the FPGAd snap, which enables access to a single directory and its contents of any number of provider snaps. This access is only necessary to use the various softeners provided by FPGAd, and so if you intend to make use of the "universal" platform, ignoring any vendor specific applications, then the following can be skipped - the "universal" approach tells the kernel where to look for files, and tells the kernel to load them<sup>†</sup>. Therefore, FPGAd does not need access to these files directly.
+
+```{note}
+<sup>†</sup> Even in Ubuntu Core, the kernel is omnipresent, omnipotent, and omniscient. All hail the kernel!
+ ```
 
 ```yaml
 slots:
@@ -358,7 +388,8 @@ where the "data" part of
 
 #### From remote repository
 
-It is possible to fetch files from a remote repository if the separation of the loader application and bitstreams is preferable (e.g. for maintenance reasons). There are various ways of handling the putting of files into the resulting snap, but below details on option utilizing the `override-build` steps of the [dump plugin](https://documentation.ubuntu.com/snapcraft/stable/common/craft-parts/reference/plugins/dump_plugin/):
+It is possible to fetch files from a remote repository if the separation of the loader application and bitstreams is preferable (e.g. for maintenance reasons). There are various ways of handling the putting of files into the resulting snap, but below details on option utilizing the
+`override-build` steps of the [dump plugin](https://documentation.ubuntu.com/snapcraft/stable/common/craft-parts/reference/plugins/dump_plugin/):
 
 ```yaml
 parts:
@@ -372,29 +403,32 @@ parts:
       cp <path/to/content> $SNAPCRAFT_PART_INSTALL/data/<name of snap>/<optional subdir name> # or similar, repeat for all desired subdirs or files
 ```
 
-For more information on `$SNAPCRAFT_PART_INSTALL` and similar, see [the snapcraft docs on part environment variables](https://documentation.ubuntu.com/snapcraft/stable/reference/parts/part-environment-variables/).
-
-
+For more information on
+`$SNAPCRAFT_PART_INSTALL` and similar, see [the snapcraft docs on part environment variables](https://documentation.ubuntu.com/snapcraft/stable/reference/parts/part-environment-variables/).
 
 ## Using a provider snap
 
-If running on target device:
+In order to use a provider snap, it need sot be installed, and then the necessary interfaces need to be connected. In the example cases, only the dbus connection and maybe the content interface need connecting. Below are the basic steps:
+
+To install the snap and connect the DBus interfaces:
 
 ```shell
-snapcraft
 sudo snap install <name of snap> # or use /path/to/snap if built locally
 sudo snap connect <name of snap>:fpgad-dbus fpgad:dbus-daemon
 ```
 
-and, if using the content interface:
+```{note}
+the  name "fpgad:dbus-daemon" is defined in the fpgad snapcraft.yaml, so may be subject to change. Check [fpgad's snapcraft.yaml](https://github.com/canonical/fpgad/blob/main/snap/snapcraft.yaml) for changes if this command fails.
+```
+
+If using the content interface, connect it like so:
 
 ```shell
 sudo snap connect fpgad:provider-content <name of snap>:<content slot name>
 ```
 
-
 ```{note}
-the  name "fpgad:dbus-daemon" is defined in the fpgad snapcraft.yaml, so may be subject to change. Check [fpgad's snapcraft.yaml](https://github.com/canonical/fpgad/blob/main/snap/snapcraft.yaml) for changes if this command fails.
+"fpgad-dbus" is the recommended interface name for the DBus interface, and the <content slot name> can be anything. In the template, it was written as "fpgad-bitstreams". Both are defined in the provider snap's snapcraft.yaml file under "plugs:" and "slots:" respectively.
 ```
 
 ### publishing your provider snap
