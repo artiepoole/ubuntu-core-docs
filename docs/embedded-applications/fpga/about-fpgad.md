@@ -240,79 +240,60 @@ parts:
     <path/to/source/dir>: data/<name of snap>
 ```
 
-#### snapcraft.yaml explained
-
-The
-`plugs` entry here allows the connection to be made between this snap and the FPGAd daemon
-
-```yaml
-plugs:
-  fgpad-dbus:
-    interface: dbus
-    bus: system
-    name: com.canonical.fpgad
-```
-
-but it must also be added to the application:
-
-```yaml
-apps:
-  k26-default-bitstreams:
-    command: bin/k26-default-bitstreams
-    daemon: oneshot
-    plugs:
-      - fpgad-dbus
-```
-
-here
-`daemon: oneshot` means "run once on startup and then it is finished".
-
-The parts section describes how to form the snap package
-
-```yaml
-
-parts:
-  version:
-    plugin: nil
-    source: .
-    build-snaps:
-      - jq
-    override-pull: |
-      craftctl default
-      cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r .packages[0].version)
-      craftctl set version="$cargo_version+git$(date +'%Y%m%d').$(git describe --always --exclude '*')"
-  k26-default-bitstreams:
-    plugin: rust
-    source: .
-    rust-path:
-      - k26-default-bitstreams
-  bitstream-data:
-    plugin: dump
-    source: ./data/
-    source-type: local
-    organize:
-      default-bitstreams: data/k26-starter-kits
-```
-
-Here
-`version` just runs a simple script to generate a unique version string,
-`k26-default-bitstreams` part defines how to build the rust package which creates the
-`bin/k26-default-bitstreams` used in the app section and
-`bitstream-data` makes a copy of the project's
-`./data` folder available from the snap root at
-`$SNAP/data`.
+See [the snapcraft docs](https://documentation.ubuntu.com/snapcraft/stable/) for more details on using and crafting snaps. See [this specific page](https://documentation.ubuntu.com/snapcraft/stable/reference/project-file/snapcraft-yaml/) for more on the keys and values available for `snapcraft.yaml` files.
 
 #### Run on startup
 
-works with and without auto-connection in store
+As seen in the two applications in the [snapcraft.yaml template](#creating-the-snapcraftyaml) above, applications can either be normal (absence of `daemon:` keyword) or defined as a `daemon: <type>` (run on startup, for example). If specified, there are multiple types of daemons, and they are similar to those available in systemd service files. See [services and daemons](https://snapcraft.io/docs/services-and-daemons) for more information on snap daemon types.
 
-`install-mode: disable` necessary for the snap to be installable. Requires manually enabling on startup via
-`sudo snap start <snap-name> --enable` or connect hooks.
+If your intention is to load a bitstream on startup, there are a few details to be made aware of in order to be able to get the snap containing the daemon installed, connected and enabled. For applications communicating with `fpgad:daemon-dbus`, that connection must be made before running your daemon. If this wasn't the case, then everything could be left as default and during install the snap would be installed, any hooks would be run, and then the daemons with "install-mode: enable" (the default value) would be started. If this application fails to start, then the snap install fails and the install does not stick.
 
-[//]: # (TODO: write section on hooks)
-https://snapcraft.io/docs/services-and-daemons#defining-a-daemon
+To allow the snap to install without running the daemon, but to minimise the number of manual steps required, the following process can be used:
+- use `install-mode: disable` in the daemon tags, as shown in [the template](#creating-the-snapcraftyaml)
+- make two hooks in the `snap/hooks/` directory called `connect-plug-fpgad-dbus` and `disconnect-plug-fpgad-dbus` (disconnect is optional) (`fpgad-dbus` is the recommended name of the plug but the format is `disconnect-plug-<name-of-interface>`)
+- write hooks to enable the daemon on connect, and disable it on disconnect (as follows, or see [k26-default-bitstreams/snap/hooks](https://github.com/canonical/k26-default-bitstreams/tree/main/snap/hooks) for an example)
+- make these files executable using `chmod +x /path/to/file`
 
-https://snapcraft.io/docs/interface-hooks#p-36664-connect-hooks
+```shell
+# File: snap/hooks/connect-plug-fpgad-dbus
+
+#!/bin/sh
+
+set -e
+
+echo "enabling <name of snap service> on startup"
+snapctl start --enable <name of snap service>
+echo "<name of snap service> enabled on startup"
+```
+
+
+```shell
+# File: snap/hooks/disconnect-plug-fpgad-dbus
+
+#!/bin/sh
+
+set -e
+
+echo "enabling <name of snap service> on startup"
+snapctl stop --disable <name of snap service>
+echo "<name of snap service> enabled on startup"
+```
+
+
+```{note}
+These commands run from inside your snap's shell so snapctl always controls the snap to which the hook belongs
+```
+For more information on hooks, see the snapcraft docs on [Connect Hooks](https://snapcraft.io/docs/interface-hooks#p-36664-connect-hooks).
+
+If manual control of the service is desired, the following commands can be used.
+ To start and enable it:
+```
+[sudo] snap start <name of snap>.<name of application> --enable
+```
+To stop and disable it:
+```
+[sudo] snap stop <name of snap>.<name of application> --disable
+```
 
 ## writing the dbus application
 
@@ -322,18 +303,18 @@ https://snapcraft.io/docs/interface-hooks#p-36664-connect-hooks
 
 ### Using the content Interface
 
-### Using a provider snap
+## Using a provider snap
 
 If running on target device:
 
 ```shell
 snapcraft
-sudo snap install k26-default-bitstreams..._arm64.snap
-sudo snap connect k26-default-bitstreams:fpgad-dbus fpgad:dbus-daemon
+sudo snap install <name of snap> # or use /path/to/snap if built locally
+sudo snap connect <name of snap>:fpgad-dbus fpgad:dbus-daemon
 ```
 
 ```{note}
-the `fpgad:dbus-daemon` is external to this repo so may be subject to change. Check [fpgad's snapcraft.yaml](https://github.com/canonical/fpgad/blob/main/snap/snapcraft.yaml) for changes if this command fails.
+the  name "fpgad:dbus-daemon" is defined in the fpgad snapcraft.yaml, so may be subject to change. Check [fpgad's snapcraft.yaml](https://github.com/canonical/fpgad/blob/main/snap/snapcraft.yaml) for changes if this command fails.
 ```
 
 ### publishing your provider snap
@@ -732,6 +713,10 @@ To set the flags of an FPGA device:
 
 ```shell
 sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control SetFpgaFlags ssu "" "fpga0" 0
+
+sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control SetFpgaFlags ssu "" "fpga0" 12 (converts to hex so is stored as 0xC
+sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control SetFpgaFlags ssu "" "fpga0" 0x0C
+sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control SetFpgaFlags ssu "" "fpga0" 0b1100 (converts to hex so is stored as 0xC)
 ```
 
 #### apply an overlay
@@ -788,7 +773,7 @@ sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/status com.ca
 ```
 
 ```shell
-sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control WriteProperty ss "/sys/class/fpga_manager/fpga0/key" ""
+sudo busctl call --system com.canonical.fpgad /com/canonical/fpgad/control com.canonical.fpgad.control WritePropertyBytes s ay "/sys/class/fpga_manager/fpga0/key" 0xAB 0xAD 0xC0 0xDE
 ```
 
 ### Snap
