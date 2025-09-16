@@ -126,10 +126,10 @@ fpgad --handle=fpga0 status
 The term "provider snaps" refers to snaps which provide bitstreams (or other firmware packages) and associated programs to load those files. This approach is primarily intended for Ubuntu Core, to allow for the convenient distribution of FPGA firmwares and a convenient way for the end user to load them. See [about FPGAd](#about-fpgad-and-provider-snaps) for more on this topic.
 
 This section describes, in the following order, how to
+
 1) write a provider snap
 2) use a provider snap
-3) publish a provider snap
-and is primarily intended for authors of bitstreams and custom hardware which is shipping Ubuntu Core to customers, and who want a convenient way to allow the end user to update their devices' FPGA functionality.
+3) publish a provider snap and is primarily intended for authors of bitstreams and custom hardware which is shipping Ubuntu Core to customers, and who want a convenient way to allow the end user to update their devices' FPGA functionality.
 
 ## Writing a provider snap
 
@@ -228,7 +228,7 @@ apps:
     daemon: oneshot # to run once on startup
     plugs:
       - fpgad-dbus
-      <...>
+      # .. any other plugs
     restart-condition: <always> # optional
     start-timeout: <30s> # not optional if restart-condition specified
     install-mode: disable # see the "run on startup" section for explanation and required hooks
@@ -236,16 +236,16 @@ apps:
     command: bin/<manual-run binary name>
   plugs:
     - fpgad-dbus
-    <...>
+    # ... any other plugs
 parts:
   <startup binary name>:
     plugin: <plugin> # see LINK for information on building inside a snap
     source: <relative/path/to/source>
-    <...>
+    # ... any other build related settings
   <manual-run binary name>:
     plugin: <plugin> # see LINK for information on building inside a snap
     source: <relative/path/to/source>
-    <...>
+    # ... any other build related settings
 <remote-bitstream-data>:
   plugin: dump
   source: <git repository url>
@@ -384,7 +384,7 @@ In order to explain how to use the organize, let the content (several files, for
 
 ```yaml
 parts:
-  ...
+  # ... other parts, like the application binary build steps
   bitstream-data:
     plugin: dump
     source: ./data/<name of snap>/
@@ -405,7 +405,7 @@ It is possible to fetch files from a remote repository if the separation of the 
 
 ```yaml
 parts:
-  ...
+  # ... other parts, like the application binary build steps
   bitstream-data:
     plugin: dump
     source: <repo url>
@@ -418,21 +418,21 @@ parts:
 For more information on
 `$SNAPCRAFT_PART_INSTALL` and similar, see [the snapcraft docs on part environment variables](https://documentation.ubuntu.com/snapcraft/stable/reference/parts/part-environment-variables/).
 
-
-
 ## Publishing your provider snap
 
 There are various resources around for publishing snaps. The general process is
+
 1. create a snap store account - register a signing key
 2. register a snap name
 3. tell the snap store where to find the source code
-4. promote (as in upgrade, not advertise) the snap to stable, when ready, and make it public if desired.
-as described here: https://snapcraft.io/docs/releasing-to-the-snap-store, with more details on each step provided by the links contained in https://documentation.ubuntu.com/snapcraft/stable/how-to/publishing/
+4. promote (as in upgrade, not advertise) the snap to stable, when ready, and make it public if desired. as described here: https://snapcraft.io/docs/releasing-to-the-snap-store, with more details on each step provided by the links contained in https://documentation.ubuntu.com/snapcraft/stable/how-to/publishing/
 
 Once your snap is published, it can be installed by any user with snapd installed and an internet connection (all Ubuntu Core images come with snap up and running) by running
+
 ```shell
 sudo snap install <name of snap>
 ```
+
 See [Using a provider snap](#using-a-provider-snap) for more set-up instructions.
 
 ## Using a provider snap
