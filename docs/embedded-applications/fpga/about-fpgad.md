@@ -20,30 +20,48 @@ In order to maintain vendor provided functionality and user space helper applica
 FPGAd provides a command line interface (CLI) to make manual control of the underlying FPGA subsystem possible without the need for a provider snap. This is useful for rapid prototyping and verification reasons, as well as being enough for situations requiring less complexity. The following subsections describe how to use the CLI to check the status, load a bitstream/apply and overlay and set properties (e.g. flags)
 
 ## Usage
-
 ```
 Usage: [snap run] fpgad [OPTIONS] <COMMAND>
 
-Commands:
-  load    Load a bitstream or an overlay for the given device handle
-  remove  Remove bitstream or an overlay
-  set     Write a value to an attribute within the sysfs folder e.g. to edit /sys/class/fpga_manager/fpga0/flags
-  status  Get the status information for the given device handle
-  help    Print this message or the help of the given subcommand(s)
+OPTIONs:
+  -h, --help            Print help
+      --handle <DEVICE_HANDLE>  fpga device `HANDLE` to be used for the operations.
+                       Default value for this option is calculated in runtime
+                       and the application picks the first available fpga device
+                       in the system (under `/sys/class/fpga_manager/`)
 
-Options:
-      --handle <HANDLE>  fpga device `HANDLE` to be used for the operations. Default value for this option is calculated in runtime and the application picks the first available fpga in the system (under /sys/class/fpga_manager)
-  -h, --help             Print help
-
+COMMANDs:
+├── load                Load a bitstream or overlay
+│   ├── overlay <FILE> [--handle <OVERLAY_HANDLE>]
+│   │       Load overlay (.dtbo) into the system using the default OVERLAY_HANDLE
+│   │           (either the provided DEVICE_HANDLE or "overlay0") or provide
+│   │       --handle: to name the overlay directory
+│   └── bitstream <FILE>
+│           Load bitstream (e.g. `.bit.bin` file) into the FPGA
+│
+├── set <ATTRIBUTE> <VALUE>
+│       Set an attribute/flag under `/sys/class/fpga_manager/<DEVICE_HANDLE>/<ATTRIBUTE>`
+│
+├── status [--handle <DEVICE_HANDLE>]
+│       Show FPGA status (all devices and overlays) or provide
+│       --handle: for a specific device status
+│
+└── remove              Remove an overlay or bitstream
+    ├── overlay [--handle <HANDLE>]
+    │       Removes the first overlay found (call repeatedly to remove all) or provide
+    │       --handle: to remove overlay previously loaded with given handle
+    └── bitstream
+            Remove active bitstream from FPGA (bitstream removal is vendor specific)
 ```
+## Explicit versions
 
-### Loading
+### Apply an overlay
 
 ```shell
 fpgad [--handle=<device_handle>] load ( (overlay <file> [--handle=<handle>]) | (bitstream <file>) )
 ```
 
-### Removing
+### Remove an overlay
 
 ```shell
 fpgad [--handle=<device_handle>] remove ( ( overlay <HANDLE> ) | ( bitstream ) )
@@ -61,43 +79,50 @@ fpgad [--handle=<device_handle>] set ATTRIBUTE VALUE
 fpgad [--handle=<device_handle>] status
 ```
 
-## examples (for testing)
+## Examples
 
 ### Load
 
 ```shell
-sudo ./target/debug/cli load bitstream /lib/firmware/k26-starter-kits.bit.bin
-sudo ./target/debug/cli --handle=fpga0 load bitstream /lib/firmware/k26-starter-kits.bit.bin
+fpgad load bitstream /lib/firmware/k26-starter-kits.bit.bin
+fpgad --handle=fpga0 load bitstream /lib/firmware/k26-starter-kits.bit.bin
 
-sudo ./target/debug/cli load overlay /lib/firmware/k26-starter-kits.dtbo
-sudo ./target/debug/cli load overlay /lib/firmware/k26-starter-kits.dtbo --handle=overlay_handle
-sudo ./target/debug/cli --handle=fpga0 load overlay /lib/firmware/k26-starter-kits.dtbo --handle=overlay_handle
+fpgad load overlay /lib/firmware/k26-starter-kits.dtbo
+fpgad load overlay /lib/firmware/k26-starter-kits.dtbo --handle=overlay_handle
+fpgad --handle=fpga0 load overlay /lib/firmware/k26-starter-kits.dtbo --handle=overlay_handle
 ```
 
 ### Remove
 
 ```shell
-sudo ./target/debug/cli --handle=fpga0 remove overlay
-sudo ./target/debug/cli --handle=fpga0 remove overlay --handle=overlay_handle
+fpgad --handle=fpga0 remove overlay
+fpgad --handle=fpga0 remove overlay --handle=overlay_handle
 ```
 
 ### Set
 
 ```shell
-sudo ./target/debug/cli set flags 0
-sudo ./target/debug/cli --handle=fpga0 set flags 0
+fpgad set flags 0
+fpgad --handle=fpga0 set flags 0
+
+        fpgad set key ABADC0DE
+fpgad --handle=fpga0 set key ABADC0DE
 ```
 
 ### Status
 
 ```shell
-./target/debug/cli status
-./target/debug/cli --handle=fpga0 status
+fpgad status
+fpgad --handle=fpga0 status
 ```
 
 # Provider snaps
 
+[//]: # (TODO: what is a provider snap)
+
 ## Writing a provider snap
+
+[//]: # (TODO: explain why you'd want to, summarise the following sections, point to DBus docs)
 
 ### Before starting
 
