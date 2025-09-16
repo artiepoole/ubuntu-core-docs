@@ -56,7 +56,7 @@ COMMANDs:
             Remove active bitstream from FPGA (bitstream removal is vendor specific)
 ```
 
-## Explicit versions
+## Explicit usages
 
 ### Apply an overlay
 
@@ -123,9 +123,17 @@ fpgad --handle=fpga0 status
 
 [//]: # (TODO: what is a provider snap)
 
+The term "provider snaps" refers to snaps which provide bitstreams (or other firmware packages) and associated programs to load those files. This approach is primarily intended for Ubuntu Core, to allow for the convenient distribution of FPGA firmwares and a convenient way for the end user to load them. See [about FPGAd](#about-fpgad-and-provider-snaps) for more on this topic.
+
+This section describes, in the following order, how to
+1) write a provider snap
+2) use a provider snap
+3) publish a provider snap
+and is primarily intended for authors of bitstreams and custom hardware which is shipping Ubuntu Core to customers, and who want a convenient way to allow the end user to update their devices' FPGA functionality.
+
 ## Writing a provider snap
 
-[//]: # (TODO: explain why you'd want to, summarise the following sections, point to DBus docs)
+Crafting a snap for the first time can be daunting, especially due to outdated information on forums and the ongoing migration of documentation. The following sections aim to remove most of the guess work from writing a provider snap, by providing examples and links to snapcraft's (currently scattered) documentation where possible. We start with some background reading before providing a template for the snapcraft.yaml file, before explaining a few of the snapcraft nuances most relevant to FPGAd provider snaps before giving guidance on installing and publishing your provider snaps.
 
 ### Before starting
 
@@ -190,7 +198,11 @@ The snapcraft.yaml must be inside the snap directory at the project root
 Below is a template which can be used to get started, please note that anything inside of
 `<>` is to be replaced:
 
+#### snapcraft.yaml template
+
 ```yaml
+# File: snap/snapcraft.yaml
+
 name: <name of snap> # note: must match any registration if you registered a snap
 base: core24 # core2* - should match Core image base version
 summary: <your summary here>
@@ -254,7 +266,7 @@ See [the snapcraft docs](https://documentation.ubuntu.com/snapcraft/stable/) for
 
 #### Run on startup
 
-As seen in the two applications in the [snapcraft.yaml template](#crafting-the-snapcraftyaml) above, applications can either be normal (absence of
+As seen in the two applications in the [snapcraft.yaml template](#snapcraftyaml-template) above, applications can either be normal (absence of
 `daemon:` keyword) or defined as a
 `daemon: <type>` (run on startup, for example). If specified, there are multiple types of daemons, and they are similar to those available in systemd service files. See [services and daemons](https://snapcraft.io/docs/services-and-daemons) for more information on snap daemon types.
 
@@ -406,9 +418,26 @@ parts:
 For more information on
 `$SNAPCRAFT_PART_INSTALL` and similar, see [the snapcraft docs on part environment variables](https://documentation.ubuntu.com/snapcraft/stable/reference/parts/part-environment-variables/).
 
+
+
+## Publishing your provider snap
+
+There are various resources around for publishing snaps. The general process is
+1. create a snap store account - register a signing key
+2. register a snap name
+3. tell the snap store where to find the source code
+4. promote (as in upgrade, not advertise) the snap to stable, when ready, and make it public if desired.
+as described here: https://snapcraft.io/docs/releasing-to-the-snap-store, with more details on each step provided by the links contained in https://documentation.ubuntu.com/snapcraft/stable/how-to/publishing/
+
+Once your snap is published, it can be installed by any user with snapd installed and an internet connection (all Ubuntu Core images come with snap up and running) by running
+```shell
+sudo snap install <name of snap>
+```
+See [Using a provider snap](#using-a-provider-snap) for more set-up instructions.
+
 ## Using a provider snap
 
-In order to use a provider snap, it need sot be installed, and then the necessary interfaces need to be connected. In the example cases, only the dbus connection and maybe the content interface need connecting. Below are the basic steps:
+In order to use a provider snap, it needs to be installed, and then the necessary interfaces need to be connected. In the example cases, only the dbus connection and maybe the content interface need connecting. Below are the basic steps:
 
 To install the snap and connect the DBus interfaces:
 
@@ -431,8 +460,6 @@ sudo snap connect fpgad:provider-content <name of snap>:<content slot name>
 "fpgad-dbus" is the recommended interface name for the DBus interface, and the <content slot name> can be anything. In the template, it was written as "fpgad-bitstreams". Both are defined in the provider snap's snapcraft.yaml file under "plugs:" and "slots:" respectively.
 ```
 
-### publishing your provider snap
-
 # DBus
 
 ```
@@ -440,7 +467,7 @@ busctl introspect com.canonical.fpgad /com/canonical/fpgad/status
 busctl introspect com.canonical.fpgad /com/canonical/fpgad/control
 ```
 
-In order to access the FPGA subsystem from a snap, an application within a snap must communicate with FPGAd backend using two DBus interfaces:
+There are two main interfaces provided by the FPGAd DBus server (with well-known name "com.canonical.fpgad"):
 
 1. [<code>com.canonical.fpgad.status</code>](#status-interface) - for read only access to properties and attributes (i.e. getters)
 2. [<code>com.canonical.fpgad.control</code>](#control-interface) - for read/write access to properties and attributes (i.e. setters)
